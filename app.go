@@ -239,6 +239,13 @@ func (a *app) handleEvent(ctx context.Context, bus *busapi.Client, files *storag
 
 // onSnapshot fetches the frame, runs detection and updates the printer state.
 func (a *app) onSnapshot(ctx context.Context, bus *busapi.Client, files *storageapi.Client, devices *deviceapi.Client, printer string, snap snapshotEvent) {
+	// A single bad frame or mismatched model must never take the module
+	// down: the host restarts us, losing all state, on a panic.
+	defer func() {
+		if r := recover(); r != nil {
+			slog.ErrorContext(ctx, "snapshot processing panicked", "printer", printer, "panic", r)
+		}
+	}()
 	cfg := a.settings.load()
 
 	if !cfg.Enabled {

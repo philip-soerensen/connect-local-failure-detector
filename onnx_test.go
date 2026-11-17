@@ -142,3 +142,22 @@ func TestPrintGuardEncoder(t *testing.T) {
 		t.Errorf("embedding diverges from onnxruntime reference: %g", maxDiff)
 	}
 }
+
+// TestRunRejectsWrongInputSize guards against the execConv out-of-range panic:
+// a model whose declared input shape does not match the tensor fed in (e.g. a
+// stale cached weights file) must produce an error, not a crash.
+func TestRunRejectsWrongInputSize(t *testing.T) {
+	m := &onnxModel{
+		inits:    map[string]*tensor{},
+		inputs:   []string{"x"},
+		outputs:  []string{"y"},
+		inputDim: []int64{1, 3, 4, 4},
+		nodes:    []onnxNode{{op: "Relu", inputs: []string{"x"}, outputs: []string{"y"}}},
+	}
+	if _, err := m.run(map[string]*tensor{"x": floatTensor([]int64{1, 3, 2, 2}, make([]float32, 12))}); err == nil {
+		t.Fatal("expected an error for a 12-element tensor fed to a [1 3 4 4] input")
+	}
+	if _, err := m.run(map[string]*tensor{"x": floatTensor([]int64{1, 3, 4, 4}, make([]float32, 48))}); err != nil {
+		t.Fatalf("correctly sized tensor must run: %v", err)
+	}
+}

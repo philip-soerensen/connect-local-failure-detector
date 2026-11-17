@@ -1,0 +1,7 @@
+[Unit]
+Description=Push one Buddy3D camera frame to Prusa Connect Local
+Documentation=https://github.com/frenchvibes/failure-detector
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/camera-pusher.sh

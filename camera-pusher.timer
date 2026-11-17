@@ -1,0 +1,10 @@
+[Unit]
+Description=Push a Buddy3D camera frame to Prusa Connect Local every 10 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

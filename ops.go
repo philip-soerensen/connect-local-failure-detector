@@ -628,6 +628,30 @@ func execCast(n onnxNode, x *tensor) ([]*tensor, error) {
 	}
 }
 
+// checkInput rejects a tensor whose element count does not match the model's
+// declared input shape. Without this, a stale or mismatched model file makes
+// execConv index out of range and panic the whole module.
+func (m *onnxModel) checkInput(name string, t *tensor) error {
+	if len(m.inputs) == 0 || name != m.inputs[0] || len(m.inputDim) == 0 {
+		return nil
+	}
+	want := int64(1)
+	for _, d := range m.inputDim {
+		if d <= 0 {
+			return nil // dynamic dim: cannot check
+		}
+		want *= d
+	}
+	n := int64(len(t.data))
+	if t.isInt() {
+		n = int64(len(t.ints))
+	}
+	if n != want {
+		return fmt.Errorf("onnx: input %q has %d elements, model expects %d (shape %v)", name, n, want, m.inputDim)
+	}
+	return nil
+}
+
 // run executes the whole graph and returns the named outputs.
 func (m *onnxModel) run(inputs map[string]*tensor) (map[string]*tensor, error) {
 	env := map[string]*tensor{}
@@ -635,6 +659,9 @@ func (m *onnxModel) run(inputs map[string]*tensor) (map[string]*tensor, error) {
 		env[k] = v
 	}
 	for k, v := range inputs {
+		if err := m.checkInput(k, v); err != nil {
+			return nil, err
+		}
 		env[k] = v
 	}
 	for _, n := range m.nodes {

@@ -36,9 +36,10 @@ type config struct {
 }
 
 // builtinModels are the reference models the module can download when
-// model_url/prototypes_url are not set. "printguard" is the default: a ~5 MB
-// ShuffleNetV2 encoder + prototype classifier (GPL-2.0 project, weights fetched
-// at runtime), far lighter than Obico's ~200 MB detector (AGPL-3.0).
+// model_url/prototypes_url are not set. "obico" is the default: a ~200 MB
+// detector (AGPL-3.0). "printguard" is a ~5 MB ShuffleNetV2 encoder +
+// prototype classifier (GPL-2.0 project, weights fetched at runtime), far
+// lighter than Obico's model.
 var builtinModels = map[string]struct {
 	url, sha         string
 	prototypesURL    string
@@ -56,7 +57,21 @@ var builtinModels = map[string]struct {
 	},
 }
 
-// resolve fills unset URL/sha fields from the selected builtin model.
+// isBuiltinURL reports whether v is a URL shipped with one of the builtin
+// models (as opposed to an operator-supplied third-party URL).
+func isBuiltinURL(v string) bool {
+	for _, b := range builtinModels {
+		if v == b.url || v == b.prototypesURL {
+			return true
+		}
+	}
+	return false
+}
+
+// resolve fills unset URL/sha fields from the selected builtin model. If the
+// stored URL still points at a (possibly different) builtin model, it is
+// snapped to the selected model, so switching model always re-downloads the
+// matching weights; a custom third-party URL is left untouched.
 func (c *config) resolve() {
 	if c.Model == "" {
 		c.Model = "obico"
@@ -66,17 +81,13 @@ func (c *config) resolve() {
 		c.Model = "obico"
 		b = builtinModels["obico"]
 	}
-	if c.ModelURL == "" {
+	if c.ModelURL == "" || isBuiltinURL(c.ModelURL) {
 		c.ModelURL = b.url
-	}
-	if c.ModelSHA256 == "" {
 		c.ModelSHA256 = b.sha
 	}
 	if c.Model == "printguard" {
-		if c.PrototypesURL == "" {
+		if c.PrototypesURL == "" || isBuiltinURL(c.PrototypesURL) {
 			c.PrototypesURL = b.prototypesURL
-		}
-		if c.PrototypesSHA256 == "" {
 			c.PrototypesSHA256 = b.prototypesSHA256
 		}
 	}
