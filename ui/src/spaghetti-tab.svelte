@@ -219,7 +219,7 @@
     </label>
     <label title="Only needed for RTSP-only cameras the host cannot pull itself.">
       RTSP URL (optional)
-      <input class="num" type="text" placeholder="rtsp://192.168.1.100/live" bind:value={camURL} />
+      <input class="num" type="text" placeholder="rtsp://<camera-ip>/live" bind:value={camURL} />
     </label>
     <button onclick={saveFeeder}>Save</button>
   </div>

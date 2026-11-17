@@ -123,11 +123,11 @@ The module's routes are mounted at
 The Buddy3D camera is a first-class camera resource bound to a printer with
 the `printer` config key (the printer's grants are copied onto the camera).
 Add it once you have a bearer token (`$TOKEN`) and the printer's device id
-(`GET /api/v1/devices`). The API is on `https://<server>:8090` (TLS, self-signed
+(`GET /api/v1/devices`). The API is on `https://<server>:8080` (TLS, self-signed
 → `curl -k`):
 
 ```sh
-curl -k -X PUT "https://127.0.0.1:8090/api/v1/cameras/buddy-cam" \
+curl -k -X PUT "https://<server>:8080/api/v1/cameras/buddy-cam" \
   -H "Authorization: Bearer $TOKEN" \
   -H "If-None-Match: *" \
   -H "Content-Type: application/json" \
@@ -261,7 +261,7 @@ sudo /var/lib/prusa-connect/bin/prusa-connect \
 - The module's routes mount at
   `/api/v1/modules/com.github.aux.frenchvibes.failure-detector/` on whatever
   port/TLS the server serves (check `journalctl -u prusa-connect` for
-  `serving api=...`; e.g. `https://host:8090`, self-signed cert → `curl -k`).
+  `serving api=...`; e.g. `https://<server>:8080`, self-signed cert → `curl -k`).
 
 ## 0.2.0 — the "Spaghetti" tab on the printer page
 
@@ -310,7 +310,7 @@ while stopped: `module add github.com/frenchvibes/failure-detector@0.2.0 -config
   the rest of the print.
 - On the running 0.2.0 the interval was already set to 30 at run time:
   `curl -k -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-   -d '{"min_interval_seconds":30}' https://127.0.0.1:8090/api/v1/modules/com.github.aux.frenchvibes.failure-detector/settings`
+   -d '{"min_interval_seconds":30}' https://<server>:8080/api/v1/modules/com.github.aux.frenchvibes.failure-detector/settings`
   (persisted in the module's data dir, survives restarts).
 
 Install 0.2.1 the same way as 0.2.0 (copy over `/opt/failure-detector-release`,
@@ -319,7 +319,7 @@ then Extensions page → **Update 0.2.1**, or `module add ...@0.2.1` while stopp
 ## Verified end-to-end on philip-server (2026-11-17 ~16:44-17:00)
 
 - 0.2.0 serving (`plugin_version=0.2.0`, openapi paths=6, UI bundle mounted).
-- Camera `buddy-cam` (generic, `stream_url: rtsp://192.168.1.100/live`,
+- Camera `buddy-cam` (generic, `stream_url: rtsp://<camera-ip>/live`,
   `snapshot_every: 30s`, `snapshot_storage: local`) — pusher timer pushes a
   fresh ffmpeg frame every 30 s (HTTP 204).
 - During the spaghetti_trap print: model downloaded (sha256-verified) and
@@ -380,7 +380,7 @@ For an RTSP-only camera like the standalone Buddy3D, set:
 
 ```yaml
 camera: buddy-cam
-camera_rtsp_url: rtsp://192.168.1.100/live
+camera_rtsp_url: rtsp://<camera-ip>/live
 ```
 
 The module then runs `ffmpeg -rtsp_transport tcp -i <url> -frames:v 1 -q:v 4
@@ -421,12 +421,12 @@ tab shows a red banner with the exact grant command to run. Install 0.3.1 like
 
 The camera belongs to the printer, so the feeder is configured per printer: open the
 printer's **Spaghetti** tab → "Camera source (this printer)" → set **Camera**
-(`buddy-cam`) and **RTSP URL** (`rtsp://192.168.1.100/live`) → Save. Or via API:
+(`buddy-cam`) and **RTSP URL** (`rtsp://<camera-ip>/live`) → Save. Or via API:
 
 ```sh
 curl -k -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"printer":"<device-id>","camera":"buddy-cam","rtsp_url":"rtsp://192.168.1.100/live"}' \
-  https://192.168.1.64:8090/api/v1/modules/com.github.aux.frenchvibes.failure-detector/feeders
+  -d '{"printer":"<device-id>","camera":"buddy-cam","rtsp_url":"rtsp://<camera-ip>/live"}' \
+  https://<server>:8080/api/v1/modules/com.github.aux.frenchvibes.failure-detector/feeders
 ```
 
 It is persisted per printer (`feeders.json` in the module data dir) and the feeder

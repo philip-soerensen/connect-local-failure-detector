@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.14
+- Docs and UI placeholders no longer mention any specific port/address (web UI
+  documented as :8080, camera as rtsp://<camera-ip>/live).
+
+
 ## 0.3.13
 - Spaghetti tab: camera picker is a dropdown of the cameras registered on the
   instance for the printer (fetched from the host API; the module wire cannot

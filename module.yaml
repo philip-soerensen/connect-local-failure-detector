@@ -9,7 +9,7 @@ name: failure-detector
 title: Failure Detector
 summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model, Obico-style. Alerts on the event stream and can pause the printer.
 kind: sink
-version: 0.3.13
+version: 0.3.14
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1
