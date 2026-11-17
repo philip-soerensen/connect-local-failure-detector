@@ -45,14 +45,18 @@
   let feeder = $state<any>(null);
   let camName = $state('');
   let camURL = $state('');
+  let cameras = $state<string[]>([]);
 
   async function load() {
     try {
-      const [s, st, h, f] = await Promise.all([
+      const [s, st, h, f, cams] = await Promise.all([
         fetch(`${mount}/settings`).then((r) => r.json()),
         fetch(`${mount}/status?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/history?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/feeders?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
+        // The cameras registered on this instance for the printer, straight
+        // from the host's API (modules cannot list cameras over the wire).
+        fetch(`/api/v1/cameras?device=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
       ]);
       settings = s;
       model = st.model ?? 'unknown';
@@ -60,6 +64,7 @@
       printer = st.printers?.[deviceId] ?? null;
       history = h.items ?? [];
       feeder = f.feeders?.[deviceId] ?? null;
+      cameras = (cams.items ?? []).map((c: any) => c.name);
       if (feeder) {
         camName = feeder.camera ?? '';
         camURL = feeder.rtsp_url ?? feeder.snapshot_url ?? '';
@@ -111,8 +116,8 @@
   {/if}
 
   <div class="row">
-    <label>
-      Model
+    <label title="Global option, also settable on the extension's settings page. Last writer wins.">
+      Model (global)
       <select bind:value={modelSel} onchange={() => patch({ model: modelSel })}>
         <option value="obico">obico (default, ~200 MB detector)</option>
         <option value="printguard">printguard (~5 MB, fast on CPU)</option>
@@ -196,17 +201,24 @@
 
   <h3>Camera source (this printer)</h3>
   <p class="muted">
-    The built-in feeder pushes frames to the printer's camera, so no external pusher is
-    needed. RTSP sources (e.g. the standalone Buddy3D) use the server's ffmpeg.
-    {#if feeder}<span class="ok">feeder active → {feeder.camera}</span>{:else}no feeder configured — frames won't flow until you set one.{/if}
+    Pick one of the cameras registered on this instance for the printer. The built-in
+    feeder pushes frames to it, so no external pusher is needed; RTSP-only sources
+    (e.g. a standalone Buddy3D) are pulled with the server's ffmpeg.
+    {#if feeder}<span class="ok">feeder active → {feeder.camera}</span>{:else}no feeder configured — frames won't flow until you pick a camera.{/if}
   </p>
   <div class="row">
     <label>
       Camera
-      <input class="num" type="text" placeholder="buddy-cam" bind:value={camName} />
+      <select bind:value={camName}>
+        {#if cameras.length === 0}<option value="">no cameras registered for this printer</option>{/if}
+        {#each cameras as c (c)}
+          <option value={c}>{c}</option>
+        {/each}
+        {#if camName && !cameras.includes(camName)}<option value={camName}>{camName} (saved)</option>{/if}
+      </select>
     </label>
-    <label>
-      RTSP URL
+    <label title="Only needed for RTSP-only cameras the host cannot pull itself.">
+      RTSP URL (optional)
       <input class="num" type="text" placeholder="rtsp://192.168.1.100/live" bind:value={camURL} />
     </label>
     <button onclick={saveFeeder}>Save</button>

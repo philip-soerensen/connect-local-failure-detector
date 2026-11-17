@@ -130,6 +130,9 @@ func (a *app) configure(ctx context.Context, held config, dataDir string) error 
 	a.feederMu.Lock()
 	a.store = newStore(dataDir)
 	a.feederMu.Unlock()
+	// A model changed on the global settings page clears the Spaghetti-tab
+	// override, so both pages edit the same option (last writer wins).
+	a.store.noteBaseModel(cfg.Model)
 	a.settings.held.Store(a.store.getPatch().effective(cfg))
 	slog.InfoContext(ctx, "configured", "data_dir", dataDir, "threshold", cfg.Threshold,
 		"alert_threshold", cfg.AlertThreshold, "pause_on_failure", cfg.PauseOnFailure)

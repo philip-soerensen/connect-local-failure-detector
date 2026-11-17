@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -126,6 +127,12 @@ func (s *store) load() {
 			var e historyEntry
 			if json.Unmarshal([]byte(line), &e) == nil {
 				s.history = append(s.history, e)
+				// Recover the frame sequence counter so names never restart
+				// after a restart (a restarted seq would sort before older
+				// frames and get the newest files pruned first).
+				if n := frameSeq(e.Frame); n > s.seq {
+					s.seq = n
+				}
 			}
 		}
 	}
@@ -134,6 +141,27 @@ func (s *store) load() {
 	}
 	if s.feeders == nil {
 		s.feeders = map[string]feederConf{}
+	}
+	// Drop history entries whose frame file is gone (pruned), so the tab
+	// does not render dead image links.
+	kept := s.history[:0]
+	for _, e := range s.history {
+		if e.Frame != "" {
+			if _, err := os.Stat(filepath.Join(s.dir, e.Frame)); err != nil {
+				continue
+			}
+		}
+		kept = append(kept, e)
+	}
+	s.history = kept
+	// Recover the frame sequence counter from the files on disk as well, so
+	// names never restart even if the history was pruned.
+	if entries, err := os.ReadDir(filepath.Join(s.dir, framesDir)); err == nil {
+		for _, e := range entries {
+			if n := frameSeq(framesDir + "/" + e.Name()); n > s.seq {
+				s.seq = n
+			}
+		}
 	}
 }
 
@@ -221,6 +249,26 @@ func (s *store) setPatch(p overridePatch) (overridePatch, error) {
 		}
 		s.patch.PauseThreshold = p.PauseThreshold
 	}
+	if p.Model != nil {
+		switch *p.Model {
+		case "printguard", "obico":
+			s.patch.Model = p.Model
+		default:
+			return s.patch, fmt.Errorf("model must be printguard or obico")
+		}
+	}
+	if p.TileSizePx != nil {
+		if *p.TileSizePx < 0 || *p.TileSizePx > 8192 {
+			return s.patch, fmt.Errorf("tile_size_px must be in [0, 8192]")
+		}
+		s.patch.TileSizePx = p.TileSizePx
+	}
+	if p.TileOverlap != nil {
+		if *p.TileOverlap < 0 || *p.TileOverlap >= 0.95 {
+			return s.patch, fmt.Errorf("tile_overlap must be in [0, 0.95)")
+		}
+		s.patch.TileOverlap = p.TileOverlap
+	}
 	if err := s.savePatch(); err != nil {
 		return s.patch, err
 	}
@@ -231,6 +279,28 @@ func (s *store) getPatch() overridePatch {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.patch
+}
+
+// baseModelFile records the model the host delivered in its config block, so a
+// change made on the global settings page can be told apart from a restart.
+const baseModelFile = "basemodel.txt"
+
+// noteBaseModel records the host-delivered model. If it differs from the last
+// recorded one, the operator changed the global option, so the run-time
+// override from the Spaghetti tab is cleared and the global value wins —
+// model is one option, settable from either page, last writer wins.
+func (s *store) noteBaseModel(model string) {
+	if s.dir == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prev, _ := os.ReadFile(filepath.Join(s.dir, baseModelFile))
+	if len(prev) > 0 && string(prev) != model {
+		s.patch.Model = nil
+		_ = s.savePatch()
+	}
+	_ = os.WriteFile(filepath.Join(s.dir, baseModelFile), []byte(model), 0o600)
 }
 
 // record appends one scored frame to the history and saves its JPEG. The
@@ -269,8 +339,33 @@ func (s *store) record(e historyEntry, jpeg []byte) {
 	_ = os.WriteFile(filepath.Join(s.dir, historyFile), []byte(b.String()), 0o600)
 }
 
-// pruneFramesLocked deletes the oldest frame files past the cap. Names start
-// with the unix-nano timestamp, so lexicographic order is time order.
+// frameSeq extracts the sequence number from a frame name
+// ("frames/000123_1794..._printer.jpg" -> 123), or 0.
+func frameSeq(frame string) int64 {
+	base := strings.TrimPrefix(frame, framesDir+"/")
+	if i := strings.IndexByte(base, '_'); i > 0 {
+		if n, err := strconv.ParseInt(base[:i], 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+// frameNano extracts the unix-nano timestamp from a frame name, or 0. Frame
+// names are "<seq>_<nano>_<printer>.jpg"; the seq restarts after a module
+// restart, so time order must come from the nano field, not the name.
+func frameNano(name string) int64 {
+	parts := strings.SplitN(name, "_", 3)
+	if len(parts) == 3 {
+		if n, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+// pruneFramesLocked deletes the oldest frame files past the cap, oldest by
+// the timestamp embedded in the name.
 func (s *store) pruneFramesLocked() {
 	dir := filepath.Join(s.dir, framesDir)
 	entries, err := os.ReadDir(dir)
@@ -283,7 +378,13 @@ func (s *store) pruneFramesLocked() {
 			names = append(names, e.Name())
 		}
 	}
-	sort.Strings(names)
+	sort.Slice(names, func(i, j int) bool {
+		ni, nj := frameNano(names[i]), frameNano(names[j])
+		if ni != nj {
+			return ni < nj
+		}
+		return names[i] < names[j]
+	})
 	for len(names) > maxFrames {
 		_ = os.Remove(filepath.Join(dir, names[0]))
 		names = names[1:]
