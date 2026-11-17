@@ -9,7 +9,7 @@ name: failure-detector
 title: Failure Detector
 summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model (obico or printguard, your choice), Obico-style. Alerts on the event stream and can pause the printer. RTSP cameras are pulled with ffmpeg installed on the server.
 kind: sink
-version: 0.3.15
+version: 0.3.16
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1
@@ -54,7 +54,7 @@ egress:
   - option: camera_snapshot_hosts
     from: process
     ports: [80, 443, 8080]
-    why: Fetch JPEG snapshots from the camera hosts the operator lists in camera_snapshot_hosts (feeder snapshot_url). Empty refuses all HTTP snapshot fetches.
+    why: Camera access. HTTP snapshots go only to the hosts in camera_snapshot_hosts (empty refuses all); RTSP cameras (feeder rtsp_url) are pulled with ffmpeg installed on the server.
     sends: A GET for one JPEG, with the camera's digest credentials, to a host the operator named.
 
 # The settings, with defaults. The host sends the result on plugin.configure

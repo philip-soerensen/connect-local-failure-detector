@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.16
+- ffmpeg requirement now also in the camera egress `why`, so it appears in the
+  install/update dialog's "reaches outside" section, not just the listing.
+
+
 ## 0.3.15
 - Review fixes: POST /settings and POST /feeders now require the caller to
   operate the module / the printer (accessapi + routesapi.PrincipalOf).
