@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "failure-detector",
-    "version": "0.3.17",
+    "version": "0.3.18",
     "description": "Routes failure-detector serves, relative to its mount /api/v1/modules/<namespace>/."
   },
   "paths": {
@@ -121,7 +121,7 @@
       },
       "post": {
         "operationId": "write-settings",
-        "summary": "Flip run-time settings (enabled, pause_on_failure, min_interval_seconds, alert_threshold, pause_threshold, model). Persisted in the module data dir.",
+        "summary": "Flip global run-time settings (enabled, pause_on_failure, alert_threshold, pause_threshold, model). min_interval_seconds here is the DEFAULT interval; the per-printer Spaghetti-tab setting supersedes it. Persisted in the module data dir.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -174,7 +174,7 @@
             }
           }
         },
-        "description": "Flip run-time settings. Requires the caller to operate this module (resource_kind)."
+        "description": "Flip global run-time settings. Requires the caller to operate this module (resource_kind). min_interval_seconds is the global default; each printer's Spaghetti tab can override it via /printer-settings."
       }
     },
     "/history": {
@@ -320,6 +320,72 @@
           },
           "400": {
             "description": "Bad request."
+          }
+        }
+      }
+    },
+    "/printer-settings": {
+      "get": {
+        "operationId": "read-printer-settings",
+        "summary": "Per-printer run-time settings (Spaghetti tab)",
+        "description": "Per-printer settings that supersede the global options when set. ?printer=<id> required. interval_seconds null means the global min_interval_seconds default applies.",
+        "parameters": [
+          {
+            "name": "printer",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The per-printer settings and the global default.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "write-printer-settings",
+        "summary": "Set a per-printer run-time setting (supersedes the global default)",
+        "description": "Body: {printer, interval_seconds}. Requires the caller to operate the printer.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "printer": {
+                    "type": "string"
+                  },
+                  "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new per-printer settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           }
         }
       }

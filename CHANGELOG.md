@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.18
+- Check interval is now two-level: global min_interval_seconds is explicitly the
+  DEFAULT (labelled as such); each printer's Spaghetti tab sets its own
+  interval via the new /printer-settings route, which supersedes the default.
+
+
 ## 0.3.17
 - Fix the settings-write permission check: `operate` is device-only in the
   host authz vocabulary; the module resource now checks `operate_resource` on

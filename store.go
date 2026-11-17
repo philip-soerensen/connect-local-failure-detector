@@ -59,10 +59,17 @@ func (p overridePatch) effective(cfg config) config {
 const (
 	historyFile   = "history.jsonl"
 	feedersFile   = "feeders.json"
+	printerFile   = "printer-overrides.json"
 	framesDir     = "frames"
 	maxHistoryLen = 10
 	maxFrames     = 10
 )
+
+// printerOverride is the per-printer run-time settings the Spaghetti tab sets.
+// Each field supersedes the global option of the same name when set.
+type printerOverride struct {
+	IntervalSeconds *int `json:"interval_seconds,omitempty"`
+}
 
 // feederConf is the per-printer camera source the built-in feeder uses:
 // push JPEG frames grabbed from rtsp_url (via system ffmpeg) or fetched from
@@ -116,11 +123,12 @@ type historyEntry struct {
 type store struct {
 	dir string
 
-	mu      sync.Mutex
-	patch   overridePatch
-	feeders map[string]feederConf // printer id -> camera source
-	history []historyEntry
-	seq     int64 // makes frame file names unique even for repeated snapshots
+	mu       sync.Mutex
+	patch    overridePatch
+	feeders  map[string]feederConf      // printer id -> camera source
+	printers map[string]printerOverride // printer id -> per-printer settings
+	history  []historyEntry
+	seq      int64 // makes frame file names unique even for repeated snapshots
 }
 
 func newStore(dataDir string) *store {
@@ -161,6 +169,12 @@ func (s *store) load() {
 	}
 	if s.feeders == nil {
 		s.feeders = map[string]feederConf{}
+	}
+	if raw, err := os.ReadFile(filepath.Join(s.dir, printerFile)); err == nil {
+		_ = json.Unmarshal(raw, &s.printers)
+	}
+	if s.printers == nil {
+		s.printers = map[string]printerOverride{}
 	}
 	// Drop history entries whose frame file is gone (pruned), so the tab
 	// does not render dead image links.
@@ -211,6 +225,40 @@ func (s *store) feeder(printer string) (feederConf, bool) {
 }
 
 // setFeeder stores the camera source for one printer and persists it.
+// printerOverrideOf returns the per-printer settings for one printer.
+func (s *store) printerOverrideOf(printer string) (printerOverride, bool) {
+	if s == nil {
+		return printerOverride{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	o, ok := s.printers[printer]
+	return o, ok
+}
+
+// setPrinterOverride merges per-printer settings and persists them.
+func (s *store) setPrinterOverride(printer string, o printerOverride) error {
+	if s == nil || s.dir == "" {
+		return fmt.Errorf("failure-detector: no data directory granted")
+	}
+	s.mu.Lock()
+	cur := s.printers[printer]
+	if o.IntervalSeconds != nil {
+		cur.IntervalSeconds = o.IntervalSeconds
+	}
+	if cur == (printerOverride{}) {
+		delete(s.printers, printer)
+	} else {
+		s.printers[printer] = cur
+	}
+	raw, err := json.Marshal(s.printers)
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(s.dir, printerFile), raw, 0o600)
+}
+
 func (s *store) setFeeder(printer string, c feederConf) error {
 	if s == nil || s.dir == "" {
 		return fmt.Errorf("failure-detector: no data directory granted")

@@ -602,11 +602,20 @@ func (a *app) throttle(printer string, cfg config) bool {
 		s = &printerState{}
 		a.states[printer] = s
 	}
-	if time.Since(s.lastFrame) < time.Duration(cfg.MinIntervalSeconds)*time.Second {
+	if time.Since(s.lastFrame) < time.Duration(a.intervalFor(printer, cfg))*time.Second {
 		return false
 	}
 	s.lastFrame = time.Now()
 	return true
+}
+
+// intervalFor is the check interval for one printer: the per-printer override
+// from the Spaghetti tab when set, else the global min_interval_seconds default.
+func (a *app) intervalFor(printer string, cfg config) int {
+	if ov, ok := a.store.printerOverrideOf(printer); ok && ov.IntervalSeconds != nil {
+		return *ov.IntervalSeconds
+	}
+	return cfg.MinIntervalSeconds
 }
 
 // update folds one frame's max confidence into the EWMA and reports whether

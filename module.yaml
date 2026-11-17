@@ -9,7 +9,7 @@ name: failure-detector
 title: Failure Detector
 summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model (obico or printguard, your choice), Obico-style. Alerts on the event stream and can pause the printer. RTSP cameras are pulled with ffmpeg installed on the server.
 kind: sink
-version: 0.3.17
+version: 0.3.18
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1
@@ -116,7 +116,7 @@ options:
   - key: min_interval_seconds
     type: int
     default: "30"
-    summary: Fewest seconds between two detections of the same camera. Pure-Go inference of one frame takes tens of seconds, so 30 keeps the server idle.
+    summary: DEFAULT fewest seconds between two detections of a camera. Pure-Go inference of one frame takes tens of seconds, so 30 keeps the server idle. Each printer can supersede this default with its own interval on the Spaghetti tab (per-printer setting wins when set).
   - key: max_frame_bytes
     type: int
     default: "8388608"

@@ -164,7 +164,7 @@ func (a *app) feedOne(ctx context.Context, conn *wirerpc.Conn, printer string, c
 				slog.InfoContext(ctx, "camera frame pushed", "printer", printer, "camera", conf.Camera, "bytes", len(jpeg))
 			}
 		}
-		interval := cfg.MinIntervalSeconds
+		interval := a.intervalFor(printer, cfg)
 		if interval <= 0 {
 			interval = 30
 		}

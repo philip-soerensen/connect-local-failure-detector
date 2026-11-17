@@ -223,6 +223,53 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "printer": body.Printer, "feeder": body.feederConf})
 	})
 
+	// GET/POST /printer-settings?printer=<id> are the per-printer run-time
+	// settings from the Spaghetti tab. Each supersedes the global option of
+	// the same name when set. Writes need operate on the printer.
+	mux.HandleFunc("GET /printer-settings", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("printer")
+		out := printerOverride{}
+		if id != "" {
+			out, _ = a.store.printerOverrideOf(id)
+		}
+		cfg := a.settings.load()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"printer":               id,
+			"interval_seconds":      out.IntervalSeconds,
+			"default_interval_seconds": cfg.MinIntervalSeconds,
+			"asked_by":              routesapi.PrincipalOf(r),
+		})
+	})
+	mux.HandleFunc("POST /printer-settings", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Printer         string `json:"printer"`
+			IntervalSeconds *int   `json:"interval_seconds"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"bad json"}`, http.StatusBadRequest)
+			return
+		}
+		if body.Printer == "" {
+			http.Error(w, `{"error":"need printer"}`, http.StatusBadRequest)
+			return
+		}
+		if body.IntervalSeconds != nil && *body.IntervalSeconds < 0 {
+			http.Error(w, `{"error":"interval_seconds must be >= 0"}`, http.StatusBadRequest)
+			return
+		}
+		if !a.mayOperate(w, r, "operate", "device", body.Printer) {
+			return
+		}
+		if err := a.store.setPrinterOverride(body.Printer, printerOverride{IntervalSeconds: body.IntervalSeconds}); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+		ov, _ := a.store.printerOverrideOf(body.Printer)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "printer": body.Printer, "interval_seconds": ov.IntervalSeconds})
+	})
+
 	// GET /history?printer=<id> lists scored frames, newest first.
 	mux.HandleFunc("GET /history", func(w http.ResponseWriter, r *http.Request) {
 		printer := r.URL.Query().Get("printer")

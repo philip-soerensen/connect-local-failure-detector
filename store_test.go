@@ -143,3 +143,30 @@ func TestNoteBaseModel(t *testing.T) {
 		t.Fatal("cleared override not persisted")
 	}
 }
+
+// TestPrinterOverride: per-printer interval supersedes the global default and
+// persists across reloads.
+func TestPrinterOverride(t *testing.T) {
+	dir := t.TempDir()
+	s := newStore(dir)
+	iv := 45
+	if err := s.setPrinterOverride("p1", printerOverride{IntervalSeconds: &iv}); err != nil {
+		t.Fatal(err)
+	}
+	ov, ok := s.printerOverrideOf("p1")
+	if !ok || ov.IntervalSeconds == nil || *ov.IntervalSeconds != 45 {
+		t.Fatalf("override wrong: %+v ok=%v", ov, ok)
+	}
+	if s2 := newStore(dir); func() bool { o, ok := s2.printerOverrideOf("p1"); return ok && o.IntervalSeconds != nil && *o.IntervalSeconds == 45 }() == false {
+		t.Fatal("override not persisted")
+	}
+	// clearing
+	z := 0
+	_ = z
+	if err := s.setPrinterOverride("p1", printerOverride{IntervalSeconds: nil}); err != nil {
+		t.Fatal(err)
+	}
+	if ov, _ := s.printerOverrideOf("p1"); ov.IntervalSeconds == nil {
+		t.Fatal("clearing did not remove the override")
+	}
+}

@@ -52,10 +52,11 @@
   let camName = $state('');
   let camURL = $state('');
   let cameras = $state<string[]>([]);
+  let printerSettings = $state<any>(null);
 
   async function load() {
     try {
-      const [s, st, h, f, cams] = await Promise.all([
+      const [s, st, h, f, cams, ps] = await Promise.all([
         fetch(`${mount}/settings`).then((r) => r.json()),
         fetch(`${mount}/status?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/history?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
@@ -63,6 +64,7 @@
         // The cameras registered on this instance for the printer, via the
         // host client (modules cannot list cameras over the wire).
         hostClient().listCameras({ query: { device: deviceId } }, hostSignal()),
+        fetch(`${mount}/printer-settings?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
       ]);
       settings = s;
       model = st.model ?? 'unknown';
@@ -70,6 +72,7 @@
       printer = st.printers?.[deviceId] ?? null;
       history = h.items ?? [];
       feeder = f.feeders?.[deviceId] ?? null;
+      printerSettings = ps;
       cameras = (cams.items ?? []).map((c: any) => c.name);
       if (feeder) {
         camName = feeder.camera ?? '';
@@ -145,17 +148,26 @@
       />
       Pause print on failure
     </label>
-    <label>
-      Check every
+    <label title={`Per-printer check interval; supersedes the global default (${printerSettings?.default_interval_seconds ?? settings?.min_interval_seconds ?? 30} s).`}>
+      Check every (this printer)
       <input
         class="num"
         type="number"
         min="0"
         step="1"
-        value={settings?.min_interval_seconds ?? 30}
+        value={printerSettings?.interval_seconds ?? printerSettings?.default_interval_seconds ?? settings?.min_interval_seconds ?? 30}
         onchange={(e) => {
           const v = parseInt((e.currentTarget as HTMLInputElement).value, 10);
-          if (Number.isFinite(v)) patch({ min_interval_seconds: v });
+          if (Number.isFinite(v)) {
+            fetch(`${mount}/printer-settings`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ printer: deviceId, interval_seconds: v }),
+            }).then(async (r) => {
+              if (!r.ok) error = `interval refused: ${await r.text()}`;
+              await load();
+            });
+          }
         }}
       />
       s
