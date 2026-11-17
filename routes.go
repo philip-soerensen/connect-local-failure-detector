@@ -22,15 +22,16 @@ func (a *app) storePatch() overridePatch {
 
 // mayOperate answers whether the caller of r may operate the named object, and
 // writes 403 when not. The caller is the principal the host passed; deny on
-// any error. Writes return false.
-func (a *app) mayOperate(w http.ResponseWriter, r *http.Request, objectType, objectID string) bool {
+// any error. action is "operate" for devices and "operate_resource" for the
+// module's own resource kind. Writes return false.
+func (a *app) mayOperate(w http.ResponseWriter, r *http.Request, action, objectType, objectID string) bool {
 	if a.access == nil {
 		http.Error(w, `{"error":"no access check available"}`, http.StatusForbidden)
 		return false
 	}
 	decision, err := a.access.Check(r.Context(), accessapi.CheckParams{
 		Subject:    routesapi.PrincipalOf(r),
-		Action:     "operate",
+		Action:     action,
 		ObjectType: objectType,
 		ObjectID:   objectID,
 	})
@@ -149,7 +150,7 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 	// the module's data directory. Only a caller that may operate this module
 	// may change anything.
 	mux.HandleFunc("POST /settings", func(w http.ResponseWriter, r *http.Request) {
-		if !a.mayOperate(w, r, "resource_kind", moduleKindID(r)) {
+		if !a.mayOperate(w, r, "operate_resource", "resource_kind", moduleKindID(r)) {
 			return
 		}
 		var p overridePatch
@@ -211,7 +212,7 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 			return
 		}
 		// Only a caller that may operate this printer may change its feeder.
-		if !a.mayOperate(w, r, "device", body.Printer) {
+		if !a.mayOperate(w, r, "operate", "device", body.Printer) {
 			return
 		}
 		if err := a.setFeeder(r.Context(), body.Printer, body.feederConf); err != nil {

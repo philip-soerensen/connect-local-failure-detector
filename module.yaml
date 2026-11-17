@@ -9,7 +9,7 @@ name: failure-detector
 title: Failure Detector
 summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model (obico or printguard, your choice), Obico-style. Alerts on the event stream and can pause the printer. RTSP cameras are pulled with ffmpeg installed on the server.
 kind: sink
-version: 0.3.16
+version: 0.3.17
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1

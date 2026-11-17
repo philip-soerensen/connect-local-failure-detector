@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.17
+- Fix the settings-write permission check: `operate` is device-only in the
+  host authz vocabulary; the module resource now checks `operate_resource` on
+  resource_kind (was 403 for everyone, so the tab dropdown reset).
+
+
 ## 0.3.16
 - ffmpeg requirement now also in the camera egress `why`, so it appears in the
   install/update dialog's "reaches outside" section, not just the listing.
