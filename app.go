@@ -70,6 +70,10 @@ func (a *app) configure(ctx context.Context, held config, dataDir string) error 
 	if held.Model != "" {
 		cfg.Model = held.Model
 	}
+	// The global-page switch wins over the text field when it is ON.
+	if held.UsePrintguard {
+		cfg.Model = "printguard"
+	}
 	if held.ModelURL != "" {
 		cfg.ModelURL = held.ModelURL
 	}

@@ -62,9 +62,9 @@ printer).
 | `min_interval_seconds` | `2` | Min seconds between two detections of the same camera. |
 | `max_frame_bytes` | `8388608` | Largest frame read and decoded. |
 
-### Models (selected with the `model` option; default `printguard`)
+### Models (picked with the `use_printguard` switch on the extension's settings page; the `model` text option is the fallback, default `obico`)
 
-- **printguard** (default): ShuffleNetV2 encoder `encoder_float32.onnx` (~5 MB,
+- **printguard** (switch ON): ShuffleNetV2 encoder `encoder_float32.onnx` (~5 MB,
   sha256 `853f8653…b3f22`) + `prototypes.json` (sha256 `06467c39…264a`) from
   github.com/oliverbravery/PrintGuard (`models/`, GPL-2.0 project). Input
   1x3x224x224; the failure probability is the softmax over squared prototype

@@ -8,7 +8,11 @@ import (
 // config block written over them, delivered on plugin.configure.
 type config struct {
 	Enabled            bool    `json:"enabled"`
-	Model              string  `json:"model"` // "printguard" (default) or "obico"
+	Model              string  `json:"model"` // "printguard" or "obico" (default)
+	// UsePrintguard is the global-page switch for the model: ON selects
+	// printguard regardless of Model. Kept separate from Model so old config
+	// blocks that name a model keep working.
+	UsePrintguard bool `json:"use_printguard"`
 	ModelURL           string  `json:"model_url"`
 	ModelSHA256        string  `json:"model_sha256"`
 	PrototypesURL      string  `json:"prototypes_url"`

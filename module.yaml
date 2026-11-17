@@ -9,7 +9,7 @@ name: failure-detector
 title: Failure Detector
 summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model (obico or printguard, your choice), Obico-style. Alerts on the event stream and can pause the printer. RTSP cameras are pulled with ffmpeg installed on the server.
 kind: sink
-version: 0.3.20
+version: 0.3.21
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1
@@ -65,10 +65,14 @@ options:
     type: bool
     default: "true"
     summary: Master switch for detection. When false, camera frames are ignored. The Spaghetti tab on a printer's page flips this at run time.
+  - key: use_printguard
+    type: bool
+    default: "false"
+    summary: "Switch for the light model: ON runs printguard (~5 MB ShuffleNetV2 + prototypes, GPL-2.0 project, fast on CPU, 224x224); OFF runs the model named in the model option below (default obico). The dropdown on the Spaghetti tab overrides whichever is selected here, until the global value is changed again."
   - key: model
     type: string
     default: "obico"
-    summary: "Which built-in model to run: obico (default; AGPL-3.0, ~200 MB detector, 416x416) or printguard (~5 MB ShuffleNetV2 + prototypes, GPL-2.0 project, fast on CPU, 224x224). Also switchable from a dropdown on the Spaghetti tab. Overridden URLs below apply to whichever model is selected."
+    summary: "Which built-in model to run when the use_printguard switch is OFF: obico (default; AGPL-3.0, ~200 MB detector, 416x416) or printguard (~5 MB, fast on CPU, 224x224). Advanced: the switch above is the easier way to pick. Overridden URLs below apply to whichever model is selected."
   - key: model_url
     type: url
     default: ""
