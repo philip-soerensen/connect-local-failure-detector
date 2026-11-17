@@ -53,6 +53,10 @@ func (p overridePatch) effective(cfg config) config {
 	if p.TileOverlap != nil {
 		cfg.TileOverlap = *p.TileOverlap
 	}
+	// Re-resolve so a model switched from the tab also switches the
+	// url/sha: otherwise the effective config would pair model=printguard
+	// with obico's url+sha and the stale cached weights would verify.
+	cfg.resolve()
 	return cfg
 }
 

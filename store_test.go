@@ -170,3 +170,39 @@ func TestPrinterOverride(t *testing.T) {
 		t.Fatal("clearing did not remove the override")
 	}
 }
+
+// TestEffectiveReResolvesModel guards the 0.3.22 fix: switching the model via
+// the Spaghetti-tab override must also switch model_url/sha to the selected
+// builtin, so ensureModel's sha check rejects the stale cached weights of the
+// previously selected model and re-downloads the right file.
+func TestEffectiveReResolvesModel(t *testing.T) {
+	base := defaultConfig()
+	base.resolve() // host-delivered config, model=obico default
+	pg := "printguard"
+	eff := overridePatch{Model: &pg}.effective(base)
+	if eff.Model != "printguard" {
+		t.Fatalf("model not applied: %q", eff.Model)
+	}
+	b := builtinModels["printguard"]
+	if eff.ModelURL != b.url || eff.ModelSHA256 != b.sha {
+		t.Fatalf("url/sha not snapped to printguard: %q %q", eff.ModelURL, eff.ModelSHA256)
+	}
+	if eff.PrototypesURL != b.prototypesURL || eff.PrototypesSHA256 != b.prototypesSHA256 {
+		t.Fatalf("prototypes not snapped: %q %q", eff.PrototypesURL, eff.PrototypesSHA256)
+	}
+	// switching back snaps back to obico
+	ob := "obico"
+	eff2 := overridePatch{Model: &ob}.effective(eff)
+	if eff2.ModelURL != builtinModels["obico"].url || eff2.ModelSHA256 != builtinModels["obico"].sha {
+		t.Fatalf("url/sha not snapped back to obico: %q %q", eff2.ModelURL, eff2.ModelSHA256)
+	}
+	// a custom third-party model_url is left untouched
+	custom := defaultConfig()
+	custom.ModelURL = "https://example.com/my-model.onnx"
+	custom.ModelSHA256 = "deadbeef"
+	custom.resolve()
+	eff3 := overridePatch{Model: &pg}.effective(custom)
+	if eff3.ModelURL != "https://example.com/my-model.onnx" || eff3.ModelSHA256 != "deadbeef" {
+		t.Fatalf("custom url/sha must survive a model switch: %q %q", eff3.ModelURL, eff3.ModelSHA256)
+	}
+}
