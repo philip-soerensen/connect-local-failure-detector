@@ -1,0 +1,23 @@
+name: Publish to Plugin Marketplace
+# Publishing a GitHub release tagged v<version> (the version in module.yaml)
+# hands the commit to the marketplace's builder, which builds every platform
+# and the browser bundle itself and uploads with the run's OIDC token.
+# NOTE: build-provenance attestations require a PUBLIC repository (or GitHub
+# Enterprise Cloud) - flip this repo to public before publishing.
+on:
+  release:
+    types: [published]
+jobs:
+  publish:
+    uses: prusa3d/prusa-connect-marketplace-publish/.github/workflows/publish.yml@v1
+    with:
+      path: .
+      bundle-command: make ui-build
+      core-ref: v0.1.0-beta.1 # Prusa Connect into .core/, until the SDK is published
+    environment: release # holds PRUSA_CONNECT_EXTENSION_SIGNING_KEY
+    secrets:
+      PRUSA_CONNECT_EXTENSION_SIGNING_KEY: ${{ secrets.PRUSA_CONNECT_EXTENSION_SIGNING_KEY }}
+    permissions:
+      contents: read
+      id-token: write     # the run proves which repository/workflow it is
+      attestations: write # build provenance of the archive and every binary

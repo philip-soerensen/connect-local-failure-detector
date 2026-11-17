@@ -1,0 +1,136 @@
+# The manifest of the failure-detector module. `prusa-connect module add` reads
+# it out of the release and writes one resource declaration from it.
+#
+# The namespace is absent on purpose: the host derives it from the module path
+# the operator installs from (github.com/frenchvibes/failure-detector becomes
+# com.github.aux.frenchvibes.failure-detector).
+
+name: failure-detector
+title: Failure Detector
+summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model, Obico-style. Alerts on the event stream and can pause the printer.
+kind: sink
+version: 0.3.9
+license: AGPL-3.0-or-later
+# The plugin wire major the process half speaks.
+contract_major: 1
+# The fragment describing the module's routes, relative to its mount.
+openapi: openapi.json
+
+# The permissions this module may take as itself. This is the ceiling: the
+# operator approves it at `module add -approve`, which grants the viewer role
+# for `observe` (and read_storage); `operate` on a printer additionally needs a
+# grant written for sink:failure-detector on that printer to pause prints.
+permissions:
+  - observe
+  - read_storage
+  - operate
+
+# The endpoints this instance may publish on. `alert` publishes event type
+# <namespace>/failure.alert on the host's event stream.
+events:
+  alert: failure.alert
+
+# A writable directory for the downloaded model weights (granted at install),
+# and a 1 GiB memory budget: the pure-Go ONNX inference holds the 416x416 input
+# plus the 446-node graph and its activations.
+needs:
+  data: true
+  memory_mib: 1024
+
+# Outbound connections the module makes. The model download goes to whatever
+# host `model_url` names (preset: www.obico.io), so the host is read from that
+# option and the operator sees the target at install approval.
+egress:
+  - option: model_url
+    from: process
+    ports: [443]
+    why: Download the ONNX detection model once, on first use.
+    sends: Nothing leaves the server; the model bytes arrive over HTTPS.
+  - option: prototypes_url
+    from: process
+    ports: [443]
+    why: Download the PrintGuard class prototypes once, on first use (model=printguard only).
+    sends: Nothing leaves the server; the prototypes arrive over HTTPS.
+
+# The settings, with defaults. The host sends the result on plugin.configure
+# before any other call; the operator overrides keys in the instance's
+# `config:` block.
+options:
+  - key: enabled
+    type: bool
+    default: "true"
+    summary: Master switch for detection. When false, camera frames are ignored. The Spaghetti tab on a printer's page flips this at run time.
+  - key: model
+    type: string
+    default: "obico"
+    summary: "Which built-in model to run: obico (default; AGPL-3.0, ~200 MB detector, 416x416) or printguard (~5 MB ShuffleNetV2 + prototypes, GPL-2.0 project, fast on CPU, 224x224). Also switchable from a dropdown on the Spaghetti tab. Overridden URLs below apply to whichever model is selected."
+  - key: model_url
+    type: url
+    default: ""
+    summary: "Override for the ONNX model URL. Empty uses the selected built-in model's URL (printguard = the PrintGuard encoder; obico = the Obico reference detector)."
+  - key: model_sha256
+    type: string
+    default: ""
+    summary: Hex sha256 the downloaded model file must match. Refuses to load otherwise. Empty uses the selected built-in model's sha256. Set together with model_url for a third-party model.
+  - key: prototypes_url
+    type: url
+    default: ""
+    summary: Override for the PrintGuard prototypes.json URL (only used when model=printguard). Empty uses the built-in URL.
+  - key: prototypes_sha256
+    type: string
+    default: ""
+    summary: Hex sha256 the downloaded prototypes.json must match. Empty uses the built-in sha256.
+  - key: threshold
+    type: number
+    default: "0.08"
+    summary: Minimum box confidence for a detection to count (the reference service uses 0.08).
+  - key: nms
+    type: number
+    default: "0.45"
+    summary: Non-maximum suppression threshold.
+  - key: alert_threshold
+    type: number
+    default: "0.2"
+    summary: Smoothed (EWMA) failure probability at or above which an alert event is published.
+  - key: pause_threshold
+    type: number
+    default: "0.4"
+    summary: Smoothed failure probability at or above which the print is paused (needs pause_on_failure and the operate grant). Run-time settable from the Spaghetti tab.
+  - key: smoothing
+    type: number
+    default: "0.4"
+    summary: EWMA weight of the newest frame (0..1). Lower smooths more.
+  - key: pause_on_failure
+    type: bool
+    default: "false"
+    summary: Send core.command.pause_print to the printer when the pause threshold is crossed.
+  - key: detect_only_printing
+    type: bool
+    default: "true"
+    summary: Run detection only while the printer's job is running.
+  - key: min_interval_seconds
+    type: int
+    default: "30"
+    summary: Fewest seconds between two detections of the same camera. Pure-Go inference of one frame takes tens of seconds, so 30 keeps the server idle.
+  - key: max_frame_bytes
+    type: int
+    default: "8388608"
+    summary: Largest camera frame, in bytes, the module will read and decode (the host caps pushes at 8 MiB).
+
+# The browser half: a tab titled "Spaghetti" on every printer's page, next to
+# Files, Camera, Printer and History. The built bundle lives under ui/ in the
+# release.
+ui:
+  entry: ui/index.js
+  library: ">=0.0.1 <1.0.0"
+  contributes:
+    device_tab:
+      - id: spaghetti
+        title: Spaghetti
+
+platforms:
+  - linux_amd64
+  - linux_arm64
+  - darwin_amd64
+  - darwin_arm64
+  - windows_amd64

@@ -1,0 +1,328 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "failure-detector",
+    "version": "0.3.9",
+    "description": "Routes failure-detector serves, relative to its mount /api/v1/modules/<namespace>/."
+  },
+  "paths": {
+    "/status": {
+      "get": {
+        "operationId": "read-status",
+        "summary": "Detection state of every printer",
+        "description": "Per-printer smoothed failure probability, frame and detection counters, and whether a print is running. Also the model load state.",
+        "responses": {
+          "200": {
+            "description": "The state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "description": "loaded, or the reason it is not"
+                    },
+                    "printers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "printing": {
+                            "type": "boolean"
+                          },
+                          "frames": {
+                            "type": "integer"
+                          },
+                          "detections": {
+                            "type": "integer"
+                          },
+                          "max_confidence": {
+                            "type": "number"
+                          },
+                          "smoothed": {
+                            "type": "number"
+                          },
+                          "alerting": {
+                            "type": "boolean"
+                          },
+                          "paused_by_module": {
+                            "type": "boolean"
+                          },
+                          "last_frame_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "model",
+                    "printers"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config": {
+      "get": {
+        "operationId": "read-config",
+        "summary": "The settings the host sent on plugin.configure",
+        "description": "The effective configuration: manifest defaults with the operator's config block written over them.",
+        "responses": {
+          "200": {
+            "description": "The settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "read-health",
+        "summary": "Liveness",
+        "description": "Answers 200 while the module process serves.",
+        "responses": {
+          "200": {
+            "description": "Alive."
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "operationId": "read-settings",
+        "summary": "Effective run-time settings and persisted overrides, for the Spaghetti tab.",
+        "responses": {
+          "200": {
+            "description": "The settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "The effective settings the Spaghetti tab draws: enabled, pause_on_failure, min_interval_seconds, the thresholds, model, plus the persisted overrides."
+      },
+      "post": {
+        "operationId": "write-settings",
+        "summary": "Flip run-time settings (enabled, pause_on_failure, min_interval_seconds, alert_threshold, pause_threshold, model). Persisted in the module data dir.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "pause_on_failure": {
+                    "type": "boolean"
+                  },
+                  "min_interval_seconds": {
+                    "type": "integer"
+                  },
+                  "alert_threshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1
+                  },
+                  "pause_threshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1
+                  },
+                  "model": {
+                    "type": "string",
+                    "enum": [
+                      "printguard",
+                      "obico"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new effective settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Flips run-time settings. The patch is persisted in the module's data directory and survives restarts."
+      }
+    },
+    "/history": {
+      "get": {
+        "operationId": "read-history",
+        "summary": "Scored camera frames, newest first.",
+        "parameters": [
+          {
+            "name": "printer",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Narrow to one printer."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Scored camera frames with their pass/fail verdict, newest first."
+      }
+    },
+    "/frames/{name}": {
+      "get": {
+        "operationId": "read-frame",
+        "summary": "One saved frame JPEG from the history.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The JPEG.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "description": "One saved frame JPEG from the history, for the thumbnails on the Spaghetti tab."
+      }
+    },
+    "/feeders": {
+      "get": {
+        "operationId": "read-feeders",
+        "summary": "Per-printer camera sources for the built-in feeder",
+        "description": "Answers the feeder config, for one printer with ?printer=<id> or for all. The camera source is per printer because the camera is the printer's.",
+        "parameters": [
+          {
+            "name": "printer",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The feeder configs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "write-feeder",
+        "summary": "Set the camera source for one printer and start its feeder",
+        "description": "Body: {printer, camera, rtsp_url or snapshot_url, user, token}. rtsp_url frames are grabbed with the system ffmpeg; snapshot_url is fetched over HTTP (Digest). Sending all empty clears the feeder. Persisted in the module's data dir.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "printer": {
+                    "type": "string"
+                  },
+                  "camera": {
+                    "type": "string"
+                  },
+                  "rtsp_url": {
+                    "type": "string"
+                  },
+                  "snapshot_url": {
+                    "type": "string"
+                  },
+                  "user": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The feeder now running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request."
+          }
+        }
+      }
+    }
+  }
+}
