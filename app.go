@@ -110,6 +110,9 @@ func (a *app) configure(ctx context.Context, held config, dataDir string) error 
 	if held.TileOverlap != 0 {
 		cfg.TileOverlap = held.TileOverlap
 	}
+	if held.CameraSnapshotHosts != "" {
+		cfg.CameraSnapshotHosts = held.CameraSnapshotHosts
+	}
 	cfg.PauseOnFailure = held.PauseOnFailure
 	cfg.DetectOnlyPrinting = held.DetectOnlyPrinting
 	cfg.Enabled = held.Enabled

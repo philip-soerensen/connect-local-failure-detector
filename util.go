@@ -8,19 +8,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 	"os"
 )
 
 // bytesReader adapts a byte slice to io.Reader without copying.
 func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }
 
-// newGet opens a GET request whose body the caller must close.
+// newGet opens a GET request whose body the caller must close. The whole
+// download is bounded by a client timeout so a stalled host cannot hang the
+// caller.
 func newGet(ctx context.Context, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

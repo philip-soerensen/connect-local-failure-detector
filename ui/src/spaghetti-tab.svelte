@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { heldHost } from './host';
+
   // The Spaghetti tab on a printer's page. A device-tab is handed the device
   // id and nothing else.
   interface Props {
@@ -10,6 +12,10 @@
   // namespace is read from the bundle's own address.
   const ns = new URL(import.meta.url).pathname.split('/')[4];
   const mount = `/api/v1/modules/${ns}`;
+  // Host API calls (cameras list) go through the host's own client, with the
+  // signed-in person's session and abort signal.
+  const hostClient = () => heldHost().client;
+  const hostSignal = () => heldHost().signal;
 
   interface Settings {
     enabled: boolean;
@@ -54,9 +60,9 @@
         fetch(`${mount}/status?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/history?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/feeders?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
-        // The cameras registered on this instance for the printer, straight
-        // from the host's API (modules cannot list cameras over the wire).
-        fetch(`/api/v1/cameras?device=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
+        // The cameras registered on this instance for the printer, via the
+        // host client (modules cannot list cameras over the wire).
+        hostClient().listCameras({ query: { device: deviceId } }, hostSignal()),
       ]);
       settings = s;
       model = st.model ?? 'unknown';

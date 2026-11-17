@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.15
+- Review fixes: POST /settings and POST /feeders now require the caller to
+  operate the module / the printer (accessapi + routesapi.PrincipalOf).
+  GET /feeders never returns the camera token, only token_set.
+  ffmpeg RTSP grabs accept only rtsp(s):// and run with -protocol_whitelist.
+  HTTP snapshot fetches are limited to hosts declared in the new
+  camera_snapshot_hosts option (also an egress entry), body-capped and timed
+  out. Model downloads have a 5-minute timeout. UI camera list goes through
+  host.client. ffmpeg requirement noted in the listing summary.
+
+
 ## 0.3.14
 - Docs and UI placeholders no longer mention any specific port/address (web UI
   documented as :8080, camera as rtsp://<camera-ip>/live).

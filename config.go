@@ -30,6 +30,9 @@ type config struct {
 	TileSizePx int `json:"tile_size_px"`
 	// TileOverlap is the minimum overlap fraction between adjacent tiles.
 	TileOverlap float64 `json:"tile_overlap"`
+	// CameraSnapshotHosts is a comma-separated list of camera hosts the
+	// feeder may fetch HTTP snapshots from. Empty refuses all of them.
+	CameraSnapshotHosts string `json:"camera_snapshot_hosts"`
 }
 
 // builtinModels are the reference models the module can download when
@@ -94,6 +97,7 @@ func defaultConfig() config {
 		MaxFrameBytes:      8 << 20,
 		TileSizePx:         0,
 		TileOverlap:        0.2,
+		CameraSnapshotHosts: "",
 	}
 }
 

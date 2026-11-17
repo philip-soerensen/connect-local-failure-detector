@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prusa3d/prusa-connect/sdk/accessapi"
@@ -17,6 +18,37 @@ func (a *app) storePatch() overridePatch {
 		return overridePatch{}
 	}
 	return a.store.getPatch()
+}
+
+// mayOperate answers whether the caller of r may operate the named object, and
+// writes 403 when not. The caller is the principal the host passed; deny on
+// any error. Writes return false.
+func (a *app) mayOperate(w http.ResponseWriter, r *http.Request, objectType, objectID string) bool {
+	if a.access == nil {
+		http.Error(w, `{"error":"no access check available"}`, http.StatusForbidden)
+		return false
+	}
+	decision, err := a.access.Check(r.Context(), accessapi.CheckParams{
+		Subject:    routesapi.PrincipalOf(r),
+		Action:     "operate",
+		ObjectType: objectType,
+		ObjectID:   objectID,
+	})
+	if err != nil || !decision.Allowed {
+		http.Error(w, `{"error":"the caller may not operate this object"}`, http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+// moduleKindID is the module's own resource kind id, "<namespace>/<name>",
+// read off the mount path (/api/v1/modules/<namespace>/...).
+func moduleKindID(r *http.Request) string {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) >= 4 && parts[0] == "api" && parts[2] == "modules" {
+		return parts[3] + "/" + name
+	}
+	return name
 }
 
 // routes is the module's HTTP surface, mounted by the host at
@@ -114,8 +146,12 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 	})
 
 	// POST /settings flips run-time settings from the tab and persists them in
-	// the module's data directory.
+	// the module's data directory. Only a caller that may operate this module
+	// may change anything.
 	mux.HandleFunc("POST /settings", func(w http.ResponseWriter, r *http.Request) {
+		if !a.mayOperate(w, r, "resource_kind", moduleKindID(r)) {
+			return
+		}
 		var p overridePatch
 		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 			http.Error(w, `{"error":"bad json"}`, http.StatusBadRequest)
@@ -149,11 +185,11 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 		out := map[string]any{}
 		if id := r.URL.Query().Get("printer"); id != "" {
 			if conf, ok := a.store.feeder(id); ok {
-				out[id] = conf
+				out[id] = conf.public()
 			}
 		} else if a.store != nil {
 			for id, conf := range a.store.allFeeders() {
-				out[id] = conf
+				out[id] = conf.public()
 			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"feeders": out, "asked_by": routesapi.PrincipalOf(r)})
@@ -172,6 +208,10 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 		}
 		if body.Printer == "" || body.Camera == "" || (body.RTSPURL == "" && body.SnapshotURL == "") {
 			http.Error(w, `{"error":"need printer, camera and rtsp_url or snapshot_url (all empty clears)"}`, http.StatusBadRequest)
+			return
+		}
+		// Only a caller that may operate this printer may change its feeder.
+		if !a.mayOperate(w, r, "device", body.Printer) {
 			return
 		}
 		if err := a.setFeeder(r.Context(), body.Printer, body.feederConf); err != nil {

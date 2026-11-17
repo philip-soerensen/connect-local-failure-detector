@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "failure-detector",
-    "version": "0.3.14",
+    "version": "0.3.15",
     "description": "Routes failure-detector serves, relative to its mount /api/v1/modules/<namespace>/."
   },
   "paths": {
@@ -174,7 +174,7 @@
             }
           }
         },
-        "description": "Flips run-time settings. The patch is persisted in the module's data directory and survives restarts."
+        "description": "Flip run-time settings. Requires the caller to operate this module (resource_kind)."
       }
     },
     "/history": {
@@ -249,7 +249,7 @@
       "get": {
         "operationId": "read-feeders",
         "summary": "Per-printer camera sources for the built-in feeder",
-        "description": "Answers the feeder config, for one printer with ?printer=<id> or for all. The camera source is per printer because the camera is the printer's.",
+        "description": "Answers the feeder configs, for one printer with ?printer=<id> or for all. The camera token is never returned, only token_set (whether one is stored).",
         "parameters": [
           {
             "name": "printer",
@@ -276,7 +276,7 @@
       "post": {
         "operationId": "write-feeder",
         "summary": "Set the camera source for one printer and start its feeder",
-        "description": "Body: {printer, camera, rtsp_url or snapshot_url, user, token}. rtsp_url frames are grabbed with the system ffmpeg; snapshot_url is fetched over HTTP (Digest). Sending all empty clears the feeder. Persisted in the module's data dir.",
+        "description": "Body: {printer, camera, rtsp_url or snapshot_url, user, token}. rtsp_url must be rtsp:// or rtsps:// and frames are grabbed with the system ffmpeg (protocol-whitelisted); snapshot_url must be http(s) with a host listed in camera_snapshot_hosts and is body-capped. Requires the caller to operate the printer.",
         "requestBody": {
           "content": {
             "application/json": {

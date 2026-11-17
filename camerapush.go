@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"time"
@@ -18,12 +19,19 @@ import (
 )
 
 // ffmpegGrab pulls one JPEG frame from an RTSP stream using the system's
-// ffmpeg. It waits for a keyframe, so it can take a few seconds.
+// ffmpeg. It waits for a keyframe, so it can take a few seconds. Only rtsp://
+// and rtsps:// URLs are accepted, and the protocol whitelist keeps ffmpeg
+// from reading file:, http:, concat: and friends.
 func ffmpegGrab(ctx context.Context, rtspURL string) ([]byte, error) {
+	u, err := url.Parse(rtspURL)
+	if err != nil || (u.Scheme != "rtsp" && u.Scheme != "rtsps") || u.Host == "" {
+		return nil, fmt.Errorf("refusing non-RTSP url %q", rtspURL)
+	}
 	grabCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(grabCtx, "ffmpeg",
 		"-hide_banner", "-loglevel", "error",
+		"-protocol_whitelist", "rtsp,rtp,tcp,udp,tls",
 		"-rtsp_transport", "tcp", "-i", rtspURL,
 		"-frames:v", "1", "-q:v", "4", "-f", "mjpeg", "pipe:1",
 	)
@@ -133,7 +141,13 @@ func (a *app) feedOne(ctx context.Context, conn *wirerpc.Conn, printer string, c
 			if user == "" {
 				user = "maker"
 			}
-			jpeg, err = digestGet(ctx, conf.SnapshotURL, user, conf.Token)
+			allowed := map[string]bool{}
+			for _, h := range strings.Split(cfg.CameraSnapshotHosts, ",") {
+				if h = strings.TrimSpace(h); h != "" {
+					allowed[h] = true
+				}
+			}
+			jpeg, err = digestGet(ctx, conf.SnapshotURL, user, conf.Token, allowed, cfg.MaxFrameBytes)
 			if err != nil {
 				slog.WarnContext(ctx, "the camera snapshot could not be fetched", "printer", printer, "url", conf.SnapshotURL, "error", err)
 			}
@@ -164,7 +178,18 @@ func (a *app) feedOne(ctx context.Context, conn *wirerpc.Conn, printer string, c
 
 // digestGet fetches url with HTTP Digest auth (MD5), handling both the
 // qop="auth" form and the legacy no-qop form old printer firmware uses.
-func digestGet(ctx context.Context, rawURL, user, pass string) ([]byte, error) {
+// The URL must be http(s) and its host must be in allowedHosts (the operator
+// declares the camera hosts in the camera_snapshot_hosts option); the body is
+// capped at maxBytes and the whole call times out.
+func digestGet(ctx context.Context, rawURL, user, pass string, allowedHosts map[string]bool, maxBytes int64) ([]byte, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return nil, fmt.Errorf("refusing non-HTTP url %q", rawURL)
+	}
+	host := u.Hostname()
+	if len(allowedHosts) == 0 || !allowedHosts[host] {
+		return nil, fmt.Errorf("camera host %q is not in camera_snapshot_hosts", host)
+	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -176,7 +201,7 @@ func digestGet(ctx context.Context, rawURL, user, pass string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
-		return io.ReadAll(resp.Body)
+		return readCapped(resp.Body, maxBytes)
 	}
 	challenge := parseChallenge(resp.Header.Get("WWW-Authenticate"))
 	if challenge == nil {
@@ -197,7 +222,19 @@ func digestGet(ctx context.Context, rawURL, user, pass string) ([]byte, error) {
 	if resp2.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("camera endpoint answered %d after digest auth", resp2.StatusCode)
 	}
-	return io.ReadAll(resp2.Body)
+	return readCapped(resp2.Body, maxBytes)
+}
+
+// readCapped reads at most maxBytes+1 and refuses an over-long body.
+func readCapped(r io.Reader, maxBytes int64) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > maxBytes {
+		return nil, fmt.Errorf("camera snapshot larger than %d bytes", maxBytes)
+	}
+	return b, nil
 }
 
 type challenge struct {

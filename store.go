@@ -76,6 +76,26 @@ type feederConf struct {
 	Token       string `json:"token,omitempty"`
 }
 
+// publicFeeder is what GET /feeders may answer with: the camera source
+// without the secret. The token is never sent back, only whether one is set.
+type publicFeeder struct {
+	Camera      string `json:"camera"`
+	RTSPURL     string `json:"rtsp_url,omitempty"`
+	SnapshotURL string `json:"snapshot_url,omitempty"`
+	User        string `json:"user,omitempty"`
+	TokenSet    bool   `json:"token_set,omitempty"`
+}
+
+func (c feederConf) public() publicFeeder {
+	return publicFeeder{
+		Camera:      c.Camera,
+		RTSPURL:     c.RTSPURL,
+		SnapshotURL: c.SnapshotURL,
+		User:        c.User,
+		TokenSet:    c.Token != "",
+	}
+}
+
 var frameNameOK = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 // historyEntry is one scored camera frame.

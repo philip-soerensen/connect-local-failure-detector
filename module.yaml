@@ -7,9 +7,9 @@
 
 name: failure-detector
 title: Failure Detector
-summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model, Obico-style. Alerts on the event stream and can pause the printer.
+summary: Watches printer cameras during prints and detects failed prints (spaghetti) with an on-device AI model (obico or printguard, your choice), Obico-style. Alerts on the event stream and can pause the printer. RTSP cameras are pulled with ffmpeg installed on the server.
 kind: sink
-version: 0.3.14
+version: 0.3.15
 license: AGPL-3.0-or-later
 # The plugin wire major the process half speaks.
 contract_major: 1
@@ -51,6 +51,11 @@ egress:
     ports: [443]
     why: Download the PrintGuard class prototypes once, on first use (model=printguard only).
     sends: Nothing leaves the server; the prototypes arrive over HTTPS.
+  - option: camera_snapshot_hosts
+    from: process
+    ports: [80, 443, 8080]
+    why: Fetch JPEG snapshots from the camera hosts the operator lists in camera_snapshot_hosts (feeder snapshot_url). Empty refuses all HTTP snapshot fetches.
+    sends: A GET for one JPEG, with the camera's digest credentials, to a host the operator named.
 
 # The settings, with defaults. The host sends the result on plugin.configure
 # before any other call; the operator overrides keys in the instance's
@@ -115,7 +120,11 @@ options:
   - key: max_frame_bytes
     type: int
     default: "8388608"
-    summary: Largest camera frame, in bytes, the module will read and decode (the host caps pushes at 8 MiB).
+    summary: Largest camera frame, in bytes, the module will read and decode (the host caps pushes at 8 MiB). Also the cap for HTTP camera snapshot fetches.
+  - key: camera_snapshot_hosts
+    type: string
+    default: ""
+    summary: Comma-separated hosts the feeder may fetch HTTP camera snapshots from (snapshot_url). Empty (default) refuses all HTTP snapshot fetches; RTSP feeders are unaffected. Declared as egress above.
 
 # The browser half: a tab titled "Spaghetti" on every printer's page, next to
 # Files, Camera, Printer and History. The built bundle lives under ui/ in the
