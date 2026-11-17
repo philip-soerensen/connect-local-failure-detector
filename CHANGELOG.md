@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.19
+- POST /settings from the Spaghetti tab now names the printer, and the module
+  checks the caller may operate THAT printer (operate_resource on the module
+  kind is only required for direct API calls without a printer). Fixes the
+  model dropdown resetting: users with operate on the printer can switch.
+
+
 ## 0.3.18
 - Check interval is now two-level: global min_interval_seconds is explicitly the
   DEFAULT (labelled as such); each printer's Spaghetti tab sets its own

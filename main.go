@@ -24,7 +24,7 @@ import (
 
 const (
 	name    = "failure-detector"
-	release = extension.Version("0.3.18")
+	release = extension.Version("0.3.19")
 )
 
 //go:embed openapi.json

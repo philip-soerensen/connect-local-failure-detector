@@ -98,7 +98,8 @@
     const r = await fetch(`${mount}/settings`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(p),
+      // name the printer so the module can check the caller may operate it
+      body: JSON.stringify({ printer: deviceId, ...p }),
     });
     if (!r.ok) error = `settings refused: ${await r.text()}`;
     await load();

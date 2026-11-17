@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "failure-detector",
-    "version": "0.3.18",
+    "version": "0.3.19",
     "description": "Routes failure-detector serves, relative to its mount /api/v1/modules/<namespace>/."
   },
   "paths": {
@@ -155,6 +155,10 @@
                       "printguard",
                       "obico"
                     ]
+                  },
+                  "printer": {
+                    "type": "string",
+                    "description": "Printer whose page the caller is on; the caller must operate it. Omit to require operate_resource on the module instead."
                   }
                 }
               }
@@ -174,7 +178,7 @@
             }
           }
         },
-        "description": "Flip global run-time settings. Requires the caller to operate this module (resource_kind). min_interval_seconds is the global default; each printer's Spaghetti tab can override it via /printer-settings."
+        "description": "Flip global run-time settings. Requires the caller to operate the printer named in the body, or (no printer given) operate_resource on this module. min_interval_seconds is the global default; each printer's Spaghetti tab can override it via /printer-settings."
       }
     },
     "/history": {

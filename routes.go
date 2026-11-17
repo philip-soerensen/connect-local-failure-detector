@@ -150,14 +150,25 @@ func (a *app) routes(conn *wirerpc.Conn) http.Handler {
 	// the module's data directory. Only a caller that may operate this module
 	// may change anything.
 	mux.HandleFunc("POST /settings", func(w http.ResponseWriter, r *http.Request) {
-		if !a.mayOperate(w, r, "operate_resource", "resource_kind", moduleKindID(r)) {
-			return
+		var body struct {
+			Printer string `json:"printer,omitempty"`
+			overridePatch
 		}
-		var p overridePatch
-		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, `{"error":"bad json"}`, http.StatusBadRequest)
 			return
 		}
+		// A caller on a printer's page must be able to operate that printer;
+		// a caller without one (direct API use) must be able to operate this
+		// module itself.
+		if body.Printer != "" {
+			if !a.mayOperate(w, r, "operate", "device", body.Printer) {
+				return
+			}
+		} else if !a.mayOperate(w, r, "operate_resource", "resource_kind", moduleKindID(r)) {
+			return
+		}
+		p := body.overridePatch
 		merged, err := a.setOverride(p)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
