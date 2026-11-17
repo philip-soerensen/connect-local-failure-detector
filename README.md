@@ -62,7 +62,12 @@ printer).
 | `min_interval_seconds` | `2` | Min seconds between two detections of the same camera. |
 | `max_frame_bytes` | `8388608` | Largest frame read and decoded. |
 
-### Models (picked with the `use_printguard` switch on the extension's settings page; the `model` text option is the fallback, default `obico`)
+### Models (picked with the `use_printguard` switch on the extension's settings page; default off = `obico`)
+
+The switch is the only model control shown in the UI. Older releases exposed a
+free-text `model` option; a leftover `model:` key in an instance's config block
+is still accepted (the module decodes settings with unknown-field refusal, so
+the field must remain) and applies while the switch is OFF.
 
 - **printguard** (switch ON): ShuffleNetV2 encoder `encoder_float32.onnx` (~5 MB,
   sha256 `853f8653…b3f22`) + `prototypes.json` (sha256 `06467c39…264a`) from

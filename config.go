@@ -7,12 +7,15 @@ import (
 // config is the effective settings: the manifest defaults with the operator's
 // config block written over them, delivered on plugin.configure.
 type config struct {
-	Enabled            bool    `json:"enabled"`
-	Model              string  `json:"model"` // "printguard" or "obico" (default)
-	// UsePrintguard is the global-page switch for the model: ON selects
-	// printguard regardless of Model. Kept separate from Model so old config
-	// blocks that name a model keep working.
-	UsePrintguard bool `json:"use_printguard"`
+	Enabled bool `json:"enabled"`
+	// Model is no longer a declared option (the use_printguard switch picks
+	// the model on the settings page), but the field must stay: ReadSettings
+	// decodes the stored config block with DisallowUnknownFields, so a
+	// config block written by an older release that still has model: would
+	// be refused and the module would not start. When set, it applies while
+	// the switch is OFF.
+	Model         string `json:"model"` // "printguard" or "obico" (default)
+	UsePrintguard bool   `json:"use_printguard"` // settings-page switch; ON = printguard
 	ModelURL           string  `json:"model_url"`
 	ModelSHA256        string  `json:"model_sha256"`
 	PrototypesURL      string  `json:"prototypes_url"`

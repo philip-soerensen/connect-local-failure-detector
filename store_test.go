@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -157,7 +159,10 @@ func TestPrinterOverride(t *testing.T) {
 	if !ok || ov.IntervalSeconds == nil || *ov.IntervalSeconds != 45 {
 		t.Fatalf("override wrong: %+v ok=%v", ov, ok)
 	}
-	if s2 := newStore(dir); func() bool { o, ok := s2.printerOverrideOf("p1"); return ok && o.IntervalSeconds != nil && *o.IntervalSeconds == 45 }() == false {
+	if s2 := newStore(dir); func() bool {
+		o, ok := s2.printerOverrideOf("p1")
+		return ok && o.IntervalSeconds != nil && *o.IntervalSeconds == 45
+	}() == false {
 		t.Fatal("override not persisted")
 	}
 	// clearing
@@ -204,5 +209,22 @@ func TestEffectiveReResolvesModel(t *testing.T) {
 	eff3 := overridePatch{Model: &pg}.effective(custom)
 	if eff3.ModelURL != "https://example.com/my-model.onnx" || eff3.ModelSHA256 != "deadbeef" {
 		t.Fatalf("custom url/sha must survive a model switch: %q %q", eff3.ModelURL, eff3.ModelSHA256)
+	}
+}
+
+// TestLegacyModelKeyStillDecodes locks the backward-compat contract: the host
+// sends the stored config block verbatim and ReadSettings decodes it with
+// DisallowUnknownFields, so the config struct must keep the legacy model key
+// (written by releases that exposed it as a text option) or old instances
+// would refuse to start.
+func TestLegacyModelKeyStillDecodes(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"model":"printguard","use_printguard":true,"min_interval_seconds":30}`))
+	dec.DisallowUnknownFields()
+	var c config
+	if err := dec.Decode(&c); err != nil {
+		t.Fatalf("legacy config block must decode: %v", err)
+	}
+	if c.Model != "printguard" || !c.UsePrintguard {
+		t.Fatalf("fields wrong: %+v", c)
 	}
 }
