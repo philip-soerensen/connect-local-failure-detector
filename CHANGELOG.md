@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.24
+- Every scored frame logs `frame scored` with the model's inference time
+  (`took`), failures log it too; throttled frames log at debug.
+
+## 0.3.23
+- The global settings page no longer shows a free-text `model` field: the
+  model is picked with the `use_printguard` switch. The struct field stays so
+  config blocks written by older releases (with a `model:` key) still decode
+  (ReadSettings refuses unknown keys); a leftover key applies while the
+  switch is off.
+
+## 0.3.22
+- Switching the model from the Spaghetti tab now also switches model_url/sha
+  (effective() re-resolves), so the sha self-heal drops stale cached weights
+  of the previously selected model and re-downloads the right file.
+
+## 0.3.21
+- Global model picker is a bool switch (`use_printguard`); manifest option
+  types have no enum, so a dropdown is not possible on the host-rendered page.
+
+## 0.3.20
+- Fix execConv panic on model switch: run() rejects input tensors whose size
+  does not match the model's declared input shape (unit-tested), and
+  onSnapshot recovers from panics so one bad frame cannot crash the module.
+
 ## 0.3.19
 - POST /settings from the Spaghetti tab now names the printer, and the module
   checks the caller may operate THAT printer (operate_resource on the module
