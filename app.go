@@ -307,6 +307,8 @@ func (a *app) onSnapshot(ctx context.Context, bus *busapi.Client, files *storage
 	a.mu.Unlock()
 
 	if !a.throttle(printer, cfg) {
+		slog.DebugContext(ctx, "frame throttled", "printer", printer, "camera", snap.Camera,
+			"interval_s", a.intervalFor(printer, cfg))
 		return
 	}
 
@@ -316,13 +318,18 @@ func (a *app) onSnapshot(ctx context.Context, bus *busapi.Client, files *storage
 		return
 	}
 
+	start := time.Now()
 	dets, maxConf, err := det.detect(img, cfg.Threshold, cfg.NMS)
+	took := time.Since(start)
 	if err != nil {
-		slog.WarnContext(ctx, "detection failed", "error", err)
+		slog.WarnContext(ctx, "detection failed", "printer", printer, "camera", snap.Camera, "took", took, "error", err)
 		return
 	}
 
 	alerting, paused := a.update(printer, maxConf, len(dets))
+	slog.InfoContext(ctx, "frame scored", "printer", printer, "camera", snap.Camera,
+		"took", took.String(), "max_confidence", maxConf, "detections", len(dets),
+		"smoothed", a.smoothedOf(printer))
 
 	if a.store != nil {
 		a.store.record(historyEntry{
