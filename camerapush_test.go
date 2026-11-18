@@ -10,7 +10,7 @@ import (
 func TestFFmpegGrabRefusesNonRTSP(t *testing.T) {
 	for _, u := range []string{
 		"file:///etc/passwd",
-		"http://192.168.1.100/live",
+		"http://192.0.2.10/live",
 		"concat:file:///etc/passwd",
 		"/etc/passwd",
 		"rtsp://", // no host
@@ -23,7 +23,7 @@ func TestFFmpegGrabRefusesNonRTSP(t *testing.T) {
 
 // TestDigestGetHostAllowlist: snapshot fetches go only to declared camera hosts.
 func TestDigestGetHostAllowlist(t *testing.T) {
-	allowed := map[string]bool{"192.168.1.100": true}
+	allowed := map[string]bool{"192.0.2.10": true}
 	if _, err := digestGet(context.Background(), "http://evil.example/snap", "maker", "x", allowed, 1<<20); err == nil {
 		t.Fatal("undeclared host accepted")
 	}
