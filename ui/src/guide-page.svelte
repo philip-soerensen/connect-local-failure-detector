@@ -66,11 +66,16 @@
   }
   .warn {
     border-left: 3px solid #c90;
-    background: #fff7e6;
+    /* translucent amber reads on both light and dark themes */
+    background: rgb(255 170 0 / 0.14);
+    color: inherit;
     padding: 0.5rem 0.75rem;
   }
   code {
-    background: #0001;
+    background: rgb(128 128 128 / 0.18);
     padding: 0 0.25rem;
+  }
+  a {
+    color: inherit;
   }
 </style>

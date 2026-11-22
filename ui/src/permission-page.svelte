@@ -112,14 +112,14 @@
     margin-top: 1rem;
   }
   pre {
-    background: #0001;
+    background: rgb(128 128 128 / 0.14);
     padding: 0.5rem 0.75rem;
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-all;
   }
   code {
-    background: #0001;
+    background: rgb(128 128 128 / 0.18);
     padding: 0 0.25rem;
   }
   pre code {
@@ -130,10 +130,13 @@
     margin: 0.75rem 0;
   }
   .muted {
-    color: #888;
+    color: color-mix(in srgb, currentColor 55%, transparent);
   }
   .err {
-    color: #c00;
+    color: #e0342f;
+  }
+  a {
+    color: inherit;
   }
   button {
     font: inherit;
