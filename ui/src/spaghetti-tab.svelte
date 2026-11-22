@@ -145,8 +145,8 @@
     </p>
     <pre class="cmd"><code>{grantCmd}</code></pre>
     <p class="err">
-      and fill in <code>&lt;pcl_YOUR_TOKEN&gt;</code> with an API token you create in the web UI
-      (avatar → API tokens).
+      and fill in <code>&lt;pcl_YOUR_TOKEN&gt;</code> with an API credential you create in the
+      web UI under <strong>Settings → API credentials → New credential</strong>.
     </p>
   {/if}
 

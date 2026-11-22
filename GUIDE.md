@@ -11,8 +11,9 @@ Assumed layout (the one `docs/src/content/docs/install-from-a-release.md` in
 systemctl unit: prusa-connect.service
 ```
 
-API base: `http://<server>:8080/api/v1` (bearer token; mint one in the web UI
-under Settings, or `POST /api/v1/auth/credentials`).
+API base: `http://<server>:8080/api/v1` (bearer credential; mint one in the web UI
+under **Settings → API credentials → New credential** in the left-hand menu, or
+`POST /api/v1/auth/credentials`).
 
 ---
 

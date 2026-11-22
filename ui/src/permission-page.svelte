@@ -58,10 +58,11 @@
   <h2>1. Create an API credential</h2>
   <ol>
     <li>Sign in to this Connect Local web UI at <code>{origin}</code>.</li>
-    <li>Click your user avatar (top right) → <strong>API tokens</strong> → create a token.
-      It looks like <code>pcl_…</code> and is <strong>shown only once</strong> — copy it now.
-      It is the <code>&lt;pcl_YOUR_TOKEN&gt;</code> placeholder below; nobody (not even this
-      page) can read it back.</li>
+    <li>In the left-hand menu, open <strong>Settings → API credentials</strong> and click
+      <strong>New credential</strong>. The credential looks like <code>pcl_…</code> and is
+      <strong>shown only once</strong> — copy it now. It is the
+      <code>&lt;pcl_YOUR_TOKEN&gt;</code> placeholder below; nobody (not even this page) can
+      read it back.</li>
   </ol>
 
   <h2>2. Grant the module the operator relation on each printer</h2>
