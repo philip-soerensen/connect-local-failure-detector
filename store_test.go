@@ -228,3 +228,29 @@ func TestLegacyModelKeyStillDecodes(t *testing.T) {
 		t.Fatalf("fields wrong: %+v", c)
 	}
 }
+
+// TestRecordPrunesFrameFiles locks the housekeeping rule: frame JPEGs are
+// deleted once they fall out of the history window (maxHistoryLen), so old
+// frames do not clog the server's disk.
+func TestRecordPrunesFrameFiles(t *testing.T) {
+	dir := t.TempDir()
+	s := newStore(dir)
+	jpeg := []byte("\xff\xd8\xff\xd9")
+	for i := 0; i < maxHistoryLen+5; i++ {
+		s.record(historyEntry{
+			Taken:   time.Unix(int64(1000+i), 0),
+			Printer: "p1",
+			Camera:  "cam",
+		}, jpeg)
+	}
+	if got := len(s.listHistory("")); got != maxHistoryLen {
+		t.Fatalf("history len = %d, want %d", got, maxHistoryLen)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, framesDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != maxFrames {
+		t.Fatalf("frame files on disk = %d, want %d (old ones must be deleted)", len(entries), maxFrames)
+	}
+}

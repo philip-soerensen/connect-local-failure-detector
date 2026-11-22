@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "failure-detector",
-    "version": "0.3.24",
+    "version": "0.3.25",
     "description": "Routes failure-detector serves, relative to its mount /api/v1/modules/<namespace>/."
   },
   "paths": {

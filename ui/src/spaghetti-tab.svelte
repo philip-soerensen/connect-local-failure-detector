@@ -50,20 +50,22 @@
   let error = $state('');
   let feeder = $state<any>(null);
   let camName = $state('');
-  let camURL = $state('');
   let cameras = $state<string[]>([]);
+  let camConfigs = $state<Record<string, Record<string, unknown>>>({});
   let printerSettings = $state<any>(null);
 
   async function load() {
     try {
-      const [s, st, h, f, cams, ps] = await Promise.all([
+      const [s, st, h, f, cams, camSets, ps] = await Promise.all([
         fetch(`${mount}/settings`).then((r) => r.json()),
         fetch(`${mount}/status?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/history?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
         fetch(`${mount}/feeders?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
-        // The cameras registered on this instance for the printer, via the
-        // host client (modules cannot list cameras over the wire).
+        // The cameras registered on this instance for the printer, and their
+        // registered config (stream URL), via the host client (modules cannot
+        // list cameras over the wire).
         hostClient().listCameras({ query: { device: deviceId } }, hostSignal()),
+        hostClient().listCameraSettings({}, hostSignal()),
         fetch(`${mount}/printer-settings?printer=${encodeURIComponent(deviceId)}`).then((r) => r.json()),
       ]);
       settings = s;
@@ -74,9 +76,11 @@
       feeder = f.feeders?.[deviceId] ?? null;
       printerSettings = ps;
       cameras = (cams.items ?? []).map((c: any) => c.name);
+      camConfigs = Object.fromEntries(
+        (camSets.items ?? []).map((c: any) => [c.name, c.config ?? {}]),
+      );
       if (feeder) {
         camName = feeder.camera ?? '';
-        camURL = feeder.rtsp_url ?? feeder.snapshot_url ?? '';
       }
       error = '';
     } catch (e: any) {
@@ -84,11 +88,20 @@
     }
   }
 
+  // The RTSP stream of a camera, read from the camera's own registered config
+  // (stream_url for generic cameras, url for rtsp cameras) — the user never
+  // types a URL.
+  const streamOf = (name: string): string => {
+    const c = camConfigs[name] ?? {};
+    return (c.stream_url ?? c.url ?? '') as string;
+  };
+
   async function saveFeeder() {
+    if (!camName) return;
     const r = await fetch(`${mount}/feeders`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ printer: deviceId, camera: camName, rtsp_url: camURL }),
+      body: JSON.stringify({ printer: deviceId, camera: camName, rtsp_url: streamOf(camName) }),
     });
     if (!r.ok) error = `feeder refused: ${await r.text()}`;
     await load();
@@ -111,7 +124,14 @@
     return () => clearInterval(t);
   });
 
-  const verdict = (e: HistoryEntry) => (e.alerting || e.detections > 0 ? 'FAIL' : 'pass');
+  // A frame is FAIL iff its smoothed score reaches the warn (alert) threshold
+  // currently chosen on this page — judged at viewing time.
+  const verdict = (e: HistoryEntry) =>
+    e.smoothed >= (settings?.alert_threshold ?? 0.2) ? 'FAIL' : 'pass';
+
+  // The grant command, constructed for THIS server and THIS printer. The
+  // token is a placeholder: API tokens are shown only once at creation.
+  const grantCmd = `curl -k -X POST "${window.location.origin}/api/v1/grants/device/${deviceId}" \\\n  -H "Authorization: Bearer <pcl_YOUR_TOKEN>" \\\n  -H 'Content-Type: application/json' \\\n  -d '{"relation":"operator","subject":"sink:failure-detector"}'`;
 </script>
 
 <div class="spaghetti">
@@ -120,8 +140,13 @@
   {#if settings?.pause_on_failure && printer && printer.can_operate === false}
     <p class="err">
       Pause on failure is ON but this module may not <strong>operate</strong> this printer, so it
-      cannot pause prints. An admin must grant it by hand:
-      <code>POST /api/v1/grants/device/{deviceId} {`{"relation":"operator","subject":"sink:failure-detector"}`}</code>
+      cannot pause prints. An admin must grant it by hand (see the “Operator permission” page).
+      For this printer, run:
+    </p>
+    <pre class="cmd"><code>{grantCmd}</code></pre>
+    <p class="err">
+      and fill in <code>&lt;pcl_YOUR_TOKEN&gt;</code> with an API token you create in the web UI
+      (avatar → API tokens).
     </p>
   {/if}
 
@@ -218,17 +243,15 @@
     {/if}
   </p>
 
-  <h3>Camera source (this printer)</h3>
+  <h3>Camera (this printer)</h3>
   <p class="muted">
-    Pick one of the cameras registered on this instance for the printer. The built-in
-    feeder pushes frames to it, so no external pusher is needed; RTSP-only sources
-    (e.g. a standalone Buddy3D) are pulled with the server's ffmpeg.
-    {#if feeder}<span class="ok">feeder active → {feeder.camera}</span>{:else}no feeder configured — frames won't flow until you pick a camera.{/if}
+    The camera registered on this instance for the printer, as configured in Connect Local.
+    {#if feeder}<span class="ok">active → {feeder.camera}</span>{:else}no camera selected — frames won't flow until you pick one.{/if}
   </p>
   <div class="row">
     <label>
       Camera
-      <select bind:value={camName}>
+      <select bind:value={camName} onchange={saveFeeder}>
         {#if cameras.length === 0}<option value="">no cameras registered for this printer</option>{/if}
         {#each cameras as c (c)}
           <option value={c}>{c}</option>
@@ -236,11 +259,6 @@
         {#if camName && !cameras.includes(camName)}<option value={camName}>{camName} (saved)</option>{/if}
       </select>
     </label>
-    <label title="Only needed for RTSP-only cameras the host cannot pull itself.">
-      RTSP URL (optional)
-      <input class="num" type="text" placeholder="rtsp://<camera-ip>/live" bind:value={camURL} />
-    </label>
-    <button onclick={saveFeeder}>Save</button>
   </div>
 
   <h3>History</h3>
@@ -334,5 +352,20 @@
   }
   figure.fail .badge {
     color: #e33;
+  }
+  pre.cmd {
+    background: #0001;
+    padding: 0.4rem 0.6rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.75rem;
+  }
+  pre.cmd code {
+    background: none;
+    padding: 0;
+  }
+  .ok {
+    color: #2a2;
   }
 </style>

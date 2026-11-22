@@ -238,6 +238,11 @@ func (a *app) handleEvent(ctx context.Context, bus *busapi.Client, files *storag
 	case event.TypeDeviceJobStarted, event.TypeDeviceJobSettled:
 		device := strings.TrimPrefix(env.Subject, "device:")
 		a.setPrinting(device, env.Type == event.TypeDeviceJobStarted)
+		if env.Type == event.TypeDeviceJobSettled {
+			// The job ended (finished, cancelled, failed): the next print
+			// starts with clean statistics, not the previous job's.
+			a.resetStats(device)
+		}
 	}
 }
 
@@ -555,6 +560,22 @@ func (a *app) setPrinting(printer string, printing bool) {
 	if !printing {
 		s.paused = false
 	}
+	a.mu.Unlock()
+}
+
+// resetStats clears one printer's scoring statistics, so one print's numbers
+// do not carry into the next. Called when a job settles.
+func (a *app) resetStats(printer string) {
+	s := a.state(printer)
+	a.mu.Lock()
+	s.frames = 0
+	s.detections = 0
+	s.maxConf = 0
+	s.smoothed = 0
+	s.alerting = false
+	s.paused = false
+	s.dups = 0
+	s.lastHash = ""
 	a.mu.Unlock()
 }
 

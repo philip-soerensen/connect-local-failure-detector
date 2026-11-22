@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.25
+- Two sidebar pages under the extension's menu: **Guide** (how it works, AI-written
+  warning, model credits, ffmpeg note) and **Operator permission** (why the operate
+  grant is needed, and a ready-to-copy curl per printer built from the server origin
+  and printer ids; the API token stays a placeholder because it is shown only once).
+- Spaghetti tab: the permission banner now shows the full curl command for this
+  server and printer; history frames are marked FAIL iff their smoothed score reaches
+  the currently chosen warn threshold; the free-text RTSP URL field is gone — the
+  camera's own registered stream URL is used; camera section simplified.
+- Scoring statistics (frames, detections, max confidence, smoothed) reset when a
+  print job settles, so one print's numbers do not carry into the next.
+- Frame JPEGs are deleted when they fall out of the 10-frame history window
+  (locked in with a unit test).
+
 ## 0.3.24
 - Every scored frame logs `frame scored` with the model's inference time
   (`took`), failures log it too; throttled frames log at debug.
