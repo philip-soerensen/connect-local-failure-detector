@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.26
+- Version bump for the 0.3.25 feature set (sidebar pages, tab cleanups, stats reset,
+  doc + dark-theme fixes). No code changes beyond the version.
+
 ## 0.3.25
 - Two sidebar pages under the extension's menu: **Guide** (how it works, AI-written
   warning, model credits, ffmpeg note) and **Operator permission** (why the operate
